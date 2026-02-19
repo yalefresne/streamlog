@@ -17,7 +17,9 @@ I am building a Homelab to analyze my home network traffic.
     * **Flow Volume** (Bytes transferred/Duration to identify video streaming vs. browsing).
 * **Device Tracking:** IP addresses change due to DHCP. To track specific household members/devices, correlate traffic using **MAC addresses** (Layer 2) rather than just IP addresses (Layer 3).
 * **Environment & CI/CD:** Development is done locally on **macOS**. However, compilation for the target environment (Mac Mini running Linux/amd64) is handled entirely by **GitHub Actions**. 
-* **CGO & Testing Workflow:** `gopacket` requires `libpcap` and CGO (`CGO_ENABLED=1`). You must ensure any GitHub Actions workflow you suggest includes steps to install CGO dependencies (like `sudo apt-get install libpcap-dev`) before running `go test` and `go build`.
+* **Zero Dependencies (No CGO):** The final binary must be 100% statically linked. **Do NOT use `libpcap` or CGO.** * Set `CGO_ENABLED=0` in all build scripts and GitHub Actions workflows.
+    * Use `github.com/google/gopacket/afpacket` for capturing packets natively on Linux.
+    * Use Go build tags (e.g., `//go:build linux`) at the top of capture files so my macOS IDE ignores them and doesn't show errors during local development.
 
 ## 4. Preferred Tech Stack
 * **Core Language:** **Go (Golang)** is mandatory for both the packet capture engine and the web server.
