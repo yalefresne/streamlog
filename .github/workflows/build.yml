@@ -1,0 +1,53 @@
+name: CI
+
+on:
+  push:
+    branches: ["main"]
+  pull_request:
+    branches: ["main"]
+
+jobs:
+  test-and-build:
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v6.0.2
+
+      - name: Set up Go
+        uses: actions/setup-go@v6.2.0
+        with:
+          go-version-file: go.mod
+
+      # libpcap-dev provides the C headers and shared library that CGO
+      # needs to compile the gopacket/pcap bindings.
+      - name: Install libpcap
+        run: sudo apt-get update && sudo apt-get install -y libpcap-dev libibverbs-dev libsystemd-dev
+
+      # The unit tests stub out the real pcap system call, so they run
+      # without root privileges and without a live capture interface.
+      - name: Run tests
+        run: go test ./...
+
+      # Build a static-ish Linux/amd64 binary. CGO_ENABLED=1 is required
+      # because gopacket/pcap links against libpcap at runtime.
+      # The -extldflags flag tells the C linker to prefer the static
+      # version of libpcap so the resulting binary has fewer runtime
+      # dependencies on the target machine.
+      - name: Build Linux binary
+        env:
+          CGO_ENABLED: "1"
+          GOOS: linux
+          GOARCH: amd64
+        run: |
+          go build \
+            -ldflags="-extldflags '$(pkg-config --static --libs libpcap libibverbs)'" \
+            -o dist/listinterfaces \
+            ./cmd/listinterfaces
+
+      - name: Upload binary artifact
+        uses: actions/upload-artifact@v6.0.0
+        with:
+          name: listinterfaces-linux-amd64
+          path: dist/listinterfaces
+          if-no-files-found: error
