@@ -19,35 +19,25 @@ jobs:
         with:
           go-version-file: go.mod
 
-      # libpcap-dev provides the C headers and shared library that CGO
-      # needs to compile the gopacket/pcap bindings.
-      - name: Install libpcap
-        run: sudo apt-get update && sudo apt-get install -y libpcap-dev libibverbs-dev libsystemd-dev
-
-      # The unit tests stub out the real pcap system call, so they run
-      # without root privileges and without a live capture interface.
+      # The unit tests run without root privileges.
       - name: Run tests
         run: go test ./...
 
-      # Build a static-ish Linux/amd64 binary. CGO_ENABLED=1 is required
-      # because gopacket/pcap links against libpcap at runtime.
-      # The -extldflags flag tells the C linker to prefer the static
-      # version of libpcap so the resulting binary has fewer runtime
-      # dependencies on the target machine.
+      # Build a static Linux/amd64 binary. CGO_ENABLED=0 is possible
+      # because we removed the libpcap dependency and use AF_PACKET.
       - name: Build Linux binary
         env:
-          CGO_ENABLED: "1"
+          CGO_ENABLED: "0"
           GOOS: linux
           GOARCH: amd64
         run: |
           go build \
-            -ldflags="-extldflags '$(pkg-config --static --libs libpcap libibverbs)'" \
-            -o dist/listinterfaces \
+            -o dist/streamlog \
             ./cmd/listinterfaces
 
       - name: Upload binary artifact
         uses: actions/upload-artifact@v6.0.0
         with:
-          name: listinterfaces-linux-amd64
-          path: dist/listinterfaces
+          name: streamlog-linux-amd64
+          path: dist/streamlog
           if-no-files-found: error
